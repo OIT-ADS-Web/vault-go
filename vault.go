@@ -169,7 +169,7 @@ func FetchTokenUsingRole(c config) (string, error) {
 		return "", decodeErr
 	}
 
-	log.Error().Msgf("vault-go: vault token from role/secret: (%+v).", result.Auth.ClientToken)
+	log.Info().Msgf("vault-go: vault token from role/secret successful.")
 	return result.Auth.ClientToken, nil
 }
 

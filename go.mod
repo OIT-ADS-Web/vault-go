@@ -1,4 +1,4 @@
-module gitlab.oit.duke.edu/essweb/vault-go
+module github.com/OIT-ADS-Web/vault-go
 
 go 1.16
 

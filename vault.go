@@ -194,7 +194,7 @@ func FetchSecrets(c *config) error {
 		if err != nil {
 			return err
 		}
-		log.Info().Msgf("Vault secret response json: %+v\n", string(body))
+		// log.Info().Msgf("Vault secret response json: %+v\n", string(body)) // <-- WARNING
 		secret := secret{}
 		if err = json.Unmarshal(body, &secret); err != nil {
 			log.Error().Msgf("vault-go: Unable to parse response from vault. The response was %s from vault.\n", resp.Status)

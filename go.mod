@@ -1,4 +1,4 @@
-module github.com/OIT-ADS-Web/vault-go
+module github.com/OIT-ADS/vault-go/vault
 
 go 1.16
 

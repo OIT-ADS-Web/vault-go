@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/OIT-ADS/vault-go/vault_go"
+	"github.com/OIT-ADS-Web/vault-go/vault_go"
 	"github.com/rs/zerolog/log"
 )
 

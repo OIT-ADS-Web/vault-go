@@ -15,6 +15,7 @@ import (
 )
 
 type config struct {
+	ToEnvFile          bool
 	SkipVault          bool
 	PrefixSecrets      bool
 	ProviderUrl        string
@@ -28,6 +29,7 @@ type config struct {
 	VaultFitzEndpoint  string
 	VaultAuthTokenUri  string
 	VaultOKDRole       string
+	OutputPairs        []Pair
 }
 
 type approle struct {
@@ -59,6 +61,11 @@ type version struct {
 	Metadata map[string]interface{} `json:"metadata"` // NOTE: not using
 }
 
+type Pair struct {
+	Name  string
+	Value string
+}
+
 func SkipVault(c config) bool {
 	skip_or_exec := "Skipping"
 	if !c.SkipVault {
@@ -68,10 +75,10 @@ func SkipVault(c config) bool {
 	return c.SkipVault
 }
 
-func UseDeveloperToken(c config) bool {
+func UseDeveloperToken(c *config) bool {
 	if c.VaultToken != "" {
 		log.Info().Msgf("vault-go: Attempting to use developer token.")
-		FetchSecrets(&c)
+		FetchSecrets(c)
 		return true
 	} else {
 		log.Info().Msgf("vault-go: developer token empty and not used. Returning false to continue to next method.")
@@ -110,7 +117,7 @@ func UseNamespaceToken(c *config) bool {
 
 func UseApproleToken(c *config) bool {
 	log.Info().Msgf("vault-go: Using app role token.")
-	token, err := FetchTokenUsingRole(*c)
+	token, err := FetchTokenUsingRole(c)
 	if err != nil {
 		log.Info().Msgf("vault-go: Using app role token failed to obtain token.")
 		return false
@@ -122,12 +129,52 @@ func UseApproleToken(c *config) bool {
 	return true
 }
 
-func Vault() bool {
+type DocInfo struct {
+	name        string
+	is_required bool
+	info        string
+}
+
+func ShowDocInfo(field_doc DocInfo) {
+	fmt.Printf("%-25s", field_doc.name)
+	if field_doc.is_required {
+		fmt.Printf("%-14s", "REQUIRED")
+	} else {
+		fmt.Printf("%-14s", "not required")
+	}
+	fmt.Printf("\t%s\n\n", field_doc.info)
+}
+
+func EnvDoc() {
+	fmt.Println("Input environment variables")
+	ShowDocInfo(DocInfo{"VAULT_PROVIDER_URL", true, "The base path for the vault REST service"})
+	ShowDocInfo(DocInfo{"VAULT_SECRET_PATH", true, `Supply a comma separated list of paths to target vault json data elements.  
+	The data named by elements of the json(s) will be written to individual env values.
+	Currently supports only simple key/value pairs in the json structure(s).`})
+	ShowDocInfo(DocInfo{"VAULT_TOKEN", false, "Local developer token (to be used instead of ROLE_ID/SECRET_ID or OKD_ROLE)."})
+
+}
+
+func Vault(to_env_file bool) (bool, []Pair) {
 	c := config{}
+	c.ToEnvFile = to_env_file
+	if to_env_file {
+		fmt.Println("Vault information will be written to .env file if it does not already exist (executable mode).")
+	} else {
+		fmt.Println("Vault information local program environment without persistence (library mode).")
+	}
 	c.SkipVault = (os.Getenv("SKIP_VAULT") == "1")
 	c.PrefixSecrets = (os.Getenv("VAULT_PREFIX_SECRETS") == "1")
 	c.ProviderUrl = os.Getenv("VAULT_PROVIDER_URL")
+	if c.ProviderUrl == "" {
+		EnvDoc()
+		os.Exit(1)
+	}
 	c.VaultSecretPath = os.Getenv("VAULT_SECRET_PATH")
+	if c.VaultSecretPath == "" {
+		EnvDoc()
+		os.Exit(1)
+	}
 	c.VaultToken = os.Getenv("VAULT_TOKEN")
 	c.VaultRoleId = os.Getenv("VAULT_ROLE_ID")
 	c.VaultSecretId = os.Getenv("VAULT_SECRET_ID")
@@ -136,10 +183,12 @@ func Vault() bool {
 
 	c.VaultAuthTokenUri = GetVaultAuthTokenUri(c)
 
-	return SkipVault(c) || UseDeveloperToken(c) || UseApproleToken(&c) || UseNamespaceToken(&c)
+	rv := !(SkipVault(c) || UseDeveloperToken(&c) || UseApproleToken(&c) || UseNamespaceToken(&c))
+	log.Info().Msgf("vault() returning: %v+\n", rv)
+	return rv, c.OutputPairs
 }
 
-func FetchTokenUsingRole(c config) (string, error) {
+func FetchTokenUsingRole(c *config) (string, error) {
 	vaultAddress := c.ProviderUrl
 	roleID := c.VaultRoleId
 	secretID := c.VaultSecretId
@@ -174,6 +223,7 @@ func FetchTokenUsingRole(c config) (string, error) {
 }
 
 func FetchSecrets(c *config) error {
+	// fmt.Printf("VAULT_SECRET_PATH: %s\n", c.VaultSecretPath)
 	paths := strings.Split(c.VaultSecretPath, ",")
 	for _, path := range paths {
 		url := fmt.Sprintf("%s/v1/%s", c.ProviderUrl, strings.TrimSpace(path))
@@ -222,9 +272,11 @@ func FetchSecrets(c *config) error {
 					} else {
 						env_var = fmt.Sprintf("%s_%s", strings.ToUpper(vault_var), strings.ToUpper(k))
 					}
+
 					vault_var_path := fmt.Sprintf("%s/%s", path, k)
 					log.Info().Msgf("vault-go: setting environment variable: %s to value from vault path: %s", env_var, vault_var_path)
 					os.Setenv(env_var, v)
+					c.OutputPairs = append(c.OutputPairs, Pair{env_var, v})
 					i++
 				}
 			} else {

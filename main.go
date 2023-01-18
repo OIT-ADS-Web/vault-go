@@ -11,29 +11,30 @@ import (
 )
 
 func main() {
-	fmt.Printf("Vault .env writer.\n")
+	log.Info().Msgf("Vault .env writer.\n")
 	err, values := vault_go.Vault(true)
 	if !err {
 		// if .env does not exist, create it
 		if _, err := os.Stat(".env"); err != nil {
-			fmt.Printf(".env file does not exist.\n")
+			log.Info().Msgf(".env file does not exist. Will attempt to create.\n")
 			f, ferr := os.Create(".env")
 			if ferr != nil {
 				log.Error().Msgf("Error creating .env file")
 			} else {
+				f.Write([]byte("# .env created by vault-go main().\n"))
 				for j := 0; j < len(values); j++ {
 					k := values[j]
-					f.Write([]byte(fmt.Sprintf("export %s=%s\n", k.Name, k.Value)))
+					f.Write([]byte(fmt.Sprintf("%s='%s'\n", k.Name, k.Value)))
 				}
 				log.Info().Msgf("Vault information stored in .env file successfully.")
 				defer f.Close()
 			}
 
 		} else {
-			fmt.Printf(".env alredy exists -- NO UDPATES PERFORMED. To allow .env creation, delete .env before running vault-go.\n")
+			log.Info().Msgf(".env alredy exists -- NO UDPATES PERFORMED. To allow .env creation, delete .env before running vault-go.\n")
 		}
 	} else {
-		fmt.Printf("An error occurred executing vault library.\n")
+		log.Info().Msgf("An error occurred executing vault library.\n")
 	}
 
 }

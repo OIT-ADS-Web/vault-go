@@ -136,17 +136,18 @@ type DocInfo struct {
 }
 
 func ShowDocInfo(field_doc DocInfo) {
-	fmt.Printf("%-25s", field_doc.name)
+	outstr := fmt.Sprintf("%-25s", field_doc.name)
 	if field_doc.is_required {
-		fmt.Printf("%-14s", "REQUIRED")
+		outstr += fmt.Sprintf("%-14s", "REQUIRED")
 	} else {
-		fmt.Printf("%-14s", "not required")
+		outstr += fmt.Sprintf("%-14s", "not required")
 	}
-	fmt.Printf("\t%s\n\n", field_doc.info)
+	outstr += fmt.Sprintf("\t%s\n\n", field_doc.info)
+	log.Info().Msgf(outstr)
 }
 
 func EnvDoc() {
-	fmt.Println("Input environment variables")
+	log.Info().Msgf("Input environment variables")
 	ShowDocInfo(DocInfo{"VAULT_PROVIDER_URL", true, "The base path for the vault REST service"})
 	ShowDocInfo(DocInfo{"VAULT_SECRET_PATH", true, `Supply a comma separated list of paths to target vault json data elements.  
 	The data named by elements of the json(s) will be written to individual env values.
@@ -159,9 +160,9 @@ func Vault(to_env_file bool) (bool, []Pair) {
 	c := config{}
 	c.ToEnvFile = to_env_file
 	if to_env_file {
-		fmt.Println("Vault information will be written to .env file if it does not already exist (executable mode).")
+		log.Info().Msgf("Vault information will be written to .env file if it does not already exist (executable mode).")
 	} else {
-		fmt.Println("Vault information local program environment without persistence (library mode).")
+		log.Info().Msgf("Vault information local program environment without persistence (library mode).")
 	}
 	c.SkipVault = (os.Getenv("SKIP_VAULT") == "1")
 	c.PrefixSecrets = (os.Getenv("VAULT_PREFIX_SECRETS") == "1")

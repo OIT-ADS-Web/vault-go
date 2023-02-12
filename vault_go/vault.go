@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 
 	// namsral/flag - use in client to set env from cmd line
@@ -225,7 +226,9 @@ func FetchTokenUsingRole(c *config) (string, error) {
 
 func FetchSecrets(c *config) error {
 	// fmt.Printf("VAULT_SECRET_PATH: %s\n", c.VaultSecretPath)
-	paths := strings.Split(c.VaultSecretPath, ",")
+	// Split secret path by either , or ; (helm cli does not like commas)
+	re := regexp.MustCompile(`[;,]`)
+	paths := re.Split(c.VaultSecretPath, -1)
 	for _, path := range paths {
 		url := fmt.Sprintf("%s/v1/%s", c.ProviderUrl, strings.TrimSpace(path))
 		log.Info().Msgf("vault-go: vault path: %s\n", url)

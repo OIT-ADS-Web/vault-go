@@ -150,44 +150,45 @@ func ShowDocInfo(field_doc DocInfo) {
 func EnvDoc() {
 	log.Info().Msgf("Input environment variables")
 	ShowDocInfo(DocInfo{"VAULT_PROVIDER_URL", true, "The base path for the vault REST service"})
-	ShowDocInfo(DocInfo{"VAULT_SECRET_PATH", true, `Supply a comma separated list of paths to target vault json data elements.  
+	ShowDocInfo(DocInfo{"VAULT_SECRET_PATH", true, `Supply a comma separated list of paths to target vault json data elements.
 	The data named by elements of the json(s) will be written to individual env values.
 	Currently supports only simple key/value pairs in the json structure(s).`})
 	ShowDocInfo(DocInfo{"VAULT_TOKEN", false, "Local developer token (to be used instead of ROLE_ID/SECRET_ID or OKD_ROLE)."})
 
 }
 
-func Vault(to_env_file bool) (bool, []Pair) {
+func Vault() (bool, []Pair) {
 	c := config{}
-	c.ToEnvFile = to_env_file
-	if to_env_file {
-		log.Info().Msgf("Vault information will be written to .env file if it does not already exist (executable mode).")
-	} else {
-		log.Info().Msgf("Vault information local program environment without persistence (library mode).")
-	}
+
 	c.SkipVault = (os.Getenv("SKIP_VAULT") == "1")
-	c.PrefixSecrets = (os.Getenv("VAULT_PREFIX_SECRETS") == "1")
-	c.ProviderUrl = os.Getenv("VAULT_PROVIDER_URL")
-	if c.ProviderUrl == "" {
-		EnvDoc()
-		os.Exit(1)
+	if !c.SkipVault {
+		c.PrefixSecrets = (os.Getenv("VAULT_PREFIX_SECRETS") == "1")
+		c.ProviderUrl = os.Getenv("VAULT_PROVIDER_URL")
+		if c.ProviderUrl == "" {
+			EnvDoc()
+			os.Exit(1)
+		}
+		c.VaultSecretPath = os.Getenv("VAULT_SECRET_PATH")
+		if c.VaultSecretPath == "" {
+			EnvDoc()
+			os.Exit(1)
+		}
+		c.VaultToken = os.Getenv("VAULT_TOKEN")
+		c.VaultRoleId = os.Getenv("VAULT_ROLE_ID")
+		c.VaultSecretId = os.Getenv("VAULT_SECRET_ID")
+
+		c.NamespaceTokenPath = os.Getenv("VAULT_NAMESPACE_TOKEN_PATH")
+
+		c.VaultAuthTokenUri = GetVaultAuthTokenUri(c)
 	}
-	c.VaultSecretPath = os.Getenv("VAULT_SECRET_PATH")
-	if c.VaultSecretPath == "" {
-		EnvDoc()
-		os.Exit(1)
+
+	err := !(SkipVault(c) || UseDeveloperToken(&c) || UseApproleToken(&c) || UseNamespaceToken(&c))
+	errstr := "success"
+	if err {
+		errstr = "failure"
 	}
-	c.VaultToken = os.Getenv("VAULT_TOKEN")
-	c.VaultRoleId = os.Getenv("VAULT_ROLE_ID")
-	c.VaultSecretId = os.Getenv("VAULT_SECRET_ID")
-
-	c.NamespaceTokenPath = os.Getenv("VAULT_NAMESPACE_TOKEN_PATH")
-
-	c.VaultAuthTokenUri = GetVaultAuthTokenUri(c)
-
-	rv := !(SkipVault(c) || UseDeveloperToken(&c) || UseApproleToken(&c) || UseNamespaceToken(&c))
-	log.Info().Msgf("vault() returning: %v+\n", rv)
-	return rv, c.OutputPairs
+	log.Info().Msgf("vault() returning: %s\n", errstr)
+	return err, c.OutputPairs
 }
 
 func FetchTokenUsingRole(c *config) (string, error) {

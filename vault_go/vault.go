@@ -182,7 +182,7 @@ func Vault() (bool, []Pair) {
 		c.VaultAuthTokenUri = GetVaultAuthTokenUri(c)
 	}
 
-	err := !(SkipVault(c) || UseDeveloperToken(&c) || UseApproleToken(&c) || UseNamespaceToken(&c))
+	err := !(SkipVault(c) || UseNamespaceToken(&c) || UseApproleToken(&c) || UseDeveloperToken(&c))
 	errstr := "success"
 	if err {
 		errstr = "failure"

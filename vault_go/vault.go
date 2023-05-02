@@ -40,17 +40,17 @@ type approle struct {
 type authorization struct {
 	LeaseId       string                 `json:"lease_id"`
 	Renewable     bool                   `json:"renewable"`
-	LeaseDuration string                 `json:"lease_duration"`
+	LeaseDuration int                    `json:"lease_duration"`
 	Data          map[string]interface{} `json:"data"`
 	Auth          auth                   `json:"auth"`
 }
 
 type auth struct {
-	ClientToken   string                 `json:"client_token"`
-	Policies      []string               `json:"policies"`
-	Metadata      map[string]interface{} `json:"metadata"`
-	LeaseDuration int                    `json:"lease_duration"`
-	Renewable     bool                   `json:"renewable"`
+	ClientToken string `json:"client_token"`
+	//Policies      []string               `json:"policies"`
+	//Metadata      map[string]interface{} `json:"metadata"`
+	//LeaseDuration int                    `json:"lease_duration"`
+	//Renewable     bool                   `json:"renewable"`
 }
 
 type secret struct {
@@ -334,7 +334,7 @@ func FetchTokenUsingNamespaceJwt(c config) (string, error) {
 
 	authz := authorization{}
 	if err = json.Unmarshal(body, &authz); err != nil {
-		log.Error().Msgf("vault-go: Unable to parse response from vault. The response was %s from vault.\n", resp.Status)
+		log.Error().Msgf("vault-go: resp parse error: %s. The response was %s from vault.\n", err, resp.Status)
 		return token, err
 	} else {
 		token = authz.Auth.ClientToken

@@ -91,7 +91,6 @@ func UseNamespaceToken(c *config) bool {
 	c.VaultFitzEndpoint = os.Getenv("VAULT_FITZ_ENDPOINT")
 	c.VaultOKDRole = os.Getenv("VAULT_OKD_ROLE")
 	log.Info().Msgf("vault-go: Attempting to use OKD namespace token.")
-	log.Info().Msgf("vault-go: NOTE: OKD namespace token approach has not been debugged yet.")
 
 	hasInfo := c.NamespaceTokenPath != "" && c.VaultFitzEndpoint != "" && c.VaultOKDRole != ""
 	if hasInfo {
@@ -103,6 +102,13 @@ func UseNamespaceToken(c *config) bool {
 
 		c.NamespaceJWT = strings.TrimSpace(string(lines[:]))
 		c.NamespaceToken, err = FetchTokenUsingNamespaceJwt(*c)
+
+		c.VaultToken = c.NamespaceToken
+		// Technically this code should keep the tokens separate in case
+		// need to back to developer token, but really should not get
+		// there since at this point the code definitely found the OKD jwt
+		// Besides, fetchsecrets doesn't fail properly
+
 		if err == nil {
 			FetchSecrets(c)
 			return true

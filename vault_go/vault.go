@@ -107,7 +107,7 @@ func UseNamespaceToken(c *config) bool {
 		// Technically this code should keep the tokens separate in case
 		// need to back to developer token, but really should not get
 		// there since at this point the code definitely found the OKD jwt
-		// Besides, fetchsecrets doesn't fail properly
+		// TODO Besides, fetchsecrets doesn't fail properly
 
 		if err == nil {
 			FetchSecrets(c)
@@ -168,7 +168,7 @@ func Vault() (bool, []Pair) {
 
 	c.SkipVault = (os.Getenv("SKIP_VAULT") == "1")
 	if !c.SkipVault {
-		c.PrefixSecrets = (os.Getenv("VAULT_PREFIX_SECRETS") == "1")
+		c.PrefixSecrets = (os.Getenv("VAULT_PREFIX_SECRETS") != "0")
 		c.ProviderUrl = os.Getenv("VAULT_PROVIDER_URL")
 		if c.ProviderUrl == "" {
 			EnvDoc()
@@ -273,15 +273,15 @@ func FetchSecrets(c *config) error {
 
 					// log.Info().Msgf("key: %+v, value: %s\n", keys[i], v) // <-- WARNING
 					vault_name_components := strings.Split(path, "/")
-					vault_name := vault_name_components[len(vault_name_components)-3]
+					// vault_name := vault_name_components[len(vault_name_components)-3]
 					vault_var := vault_name_components[len(vault_name_components)-1]
 
 					var env_var string
 
 					if c.PrefixSecrets {
-						env_var = fmt.Sprintf("%s_%s_%s", strings.ToUpper(vault_name), strings.ToUpper(vault_var), strings.ToUpper(k))
-					} else {
 						env_var = fmt.Sprintf("%s_%s", strings.ToUpper(vault_var), strings.ToUpper(k))
+					} else {
+						env_var = fmt.Sprintf("%s", strings.ToUpper(k))
 					}
 
 					vault_var_path := fmt.Sprintf("%s/%s", path, k)

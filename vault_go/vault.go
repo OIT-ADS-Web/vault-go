@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	// namsral/flag - use in client to set env from cmd line
@@ -67,10 +68,29 @@ type Pair struct {
 	Value string
 }
 
+func EnsureVaultVarsSet(vars []string) bool {
+	// Call this function after Vault() to ensure that all the required
+	// environment variables are set.
+	allSet := true
+	for _, v := range vars {
+		if os.Getenv(v) == "" {
+			log.Info().Msgf("vault-go: environment variable %s is not set", v)
+			allSet = false
+		}
+	}
+	if allSet {
+		log.Info().Msgf("vault-go: All required environment variables are set.")
+	} else {
+		log.Info().Msgf("vault-go: Not all required environment variables were set from vault. FORCING EXIT.")
+		os.Exit(99)
+	}
+	return allSet
+}
+
 func SkipVault(c config) bool {
 	skip_or_exec := "Skipping"
 	if !c.SkipVault {
-		skip_or_exec = "Executing (SKIP_VAULT != 1)"
+		skip_or_exec = "Executing"
 	}
 	log.Info().Msgf("vault-go: %s vault configuration", skip_or_exec)
 	return c.SkipVault
@@ -163,12 +183,21 @@ func EnvDoc() {
 
 }
 
+func IsTrue(boolish string) bool {
+	switch boolish {
+	case "1", "t", "T", "true", "TRUE", "True", "yes", "YES", "Yes", "y", "Y":
+		return true
+	default:
+		return false
+	}
+}
+
 func Vault() (bool, []Pair) {
 	c := config{}
 
-	c.SkipVault = (os.Getenv("SKIP_VAULT") == "1")
+	c.SkipVault = IsTrue(os.Getenv("SKIP_VAULT"))
 	if !c.SkipVault {
-		c.PrefixSecrets = (os.Getenv("VAULT_PREFIX_SECRETS") != "0")
+		c.PrefixSecrets = IsTrue(os.Getenv("VAULT_PREFIX_SECRETS"))
 		c.ProviderUrl = os.Getenv("VAULT_PROVIDER_URL")
 		if c.ProviderUrl == "" {
 			EnvDoc()
@@ -231,6 +260,21 @@ func FetchTokenUsingRole(c *config) (string, error) {
 	return result.Auth.ClientToken, nil
 }
 
+func typeof(v interface{}) string {
+	switch v.(type) {
+	case string:
+		return "string"
+	case int:
+		return "int"
+	case float64:
+		return "float64"
+	case bool:
+		return "bool"
+	default:
+		return "unknown"
+	}
+}
+
 func FetchSecrets(c *config) error {
 	// fmt.Printf("VAULT_SECRET_PATH: %s\n", c.VaultSecretPath)
 	// Split secret path by either , or ; (helm cli does not like commas)
@@ -257,6 +301,7 @@ func FetchSecrets(c *config) error {
 		}
 		// log.Info().Msgf("Vault secret response json: %+v\n", string(body)) // <-- WARNING
 		secret := secret{}
+		// log.Info().Msgf("vault-go: secrets body: %s\n", body)
 		if err = json.Unmarshal(body, &secret); err != nil {
 			log.Error().Msgf("vault-go: Unable to parse response from vault. The response was %s from vault.\n", resp.Status)
 			return err
@@ -268,24 +313,42 @@ func FetchSecrets(c *config) error {
 				i := 0
 				for k := range secret.Version.Data {
 					keys[i] = k
+					val := secret.Version.Data[k]
+					t := typeof(val)
+					// log.Info().Msgf("value type: %s", t)
+					var v string
 
-					v := secret.Version.Data[k].(string)
-
-					// log.Info().Msgf("key: %+v, value: %s\n", keys[i], v) // <-- WARNING
+					switch {
+					case t == "string":
+						v = val.(string)
+					case t == "int":
+						v = strconv.Itoa(val.(int))
+					case t == "bool":
+						v = strconv.FormatBool(val.(bool))
+					case t == "float64":
+						v = strconv.FormatFloat(val.(float64), 'f', -1, 64)
+					case t == "[]uint8":
+						v = string(val.([]byte))
+					default:
+						v = "error: unknown value type from vault for key: " + keys[i]
+					}
+					// log.Info().Msgf("key: %+v, value: %s\n", keys[i], v)
 					vault_name_components := strings.Split(path, "/")
-					// vault_name := vault_name_components[len(vault_name_components)-3]
 					vault_var := vault_name_components[len(vault_name_components)-1]
 
 					var env_var string
 
 					if c.PrefixSecrets {
+						// log.Info().Msgf("prefix secrets is true")
 						env_var = fmt.Sprintf("%s_%s", strings.ToUpper(vault_var), strings.ToUpper(k))
 					} else {
+						// log.Info().Msgf("prefix secrets is false")
 						env_var = fmt.Sprintf("%s", strings.ToUpper(k))
 					}
 
 					vault_var_path := fmt.Sprintf("%s/%s", path, k)
 					log.Info().Msgf("vault-go: setting environment variable: %s to value from vault path: %s", env_var, vault_var_path)
+					// log.Info().Msgf("value: %+v", v)
 					os.Setenv(env_var, v)
 					c.OutputPairs = append(c.OutputPairs, Pair{env_var, v})
 					i++

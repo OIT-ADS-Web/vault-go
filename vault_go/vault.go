@@ -232,6 +232,11 @@ func FetchTokenUsingRole(c *config) (string, error) {
 	secretID := c.VaultSecretId
 	endpoint := fmt.Sprintf("%s/%s", vaultAddress, "v1/auth/ess-web/approle/login")
 
+	if len(roleID) == 0 || len(secretID) == 0 {
+		log.Error().Msgf("vault-go: roleID or secretID was empty can fetch token")
+		return "", fmt.Errorf("role ID or secret ID was empty")
+	}
+
 	message := map[string]interface{}{
 		"role_id":   roleID,
 		"secret_id": secretID,
@@ -247,6 +252,10 @@ func FetchTokenUsingRole(c *config) (string, error) {
 	if err != nil {
 		log.Error().Msgf("vault-go: Error result from vault token lookup: (%+v).", err)
 		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		log.Error().Msgf("vault-go: Returned a non-200 error from fetch token (%v)", resp.StatusCode)
+		return "", fmt.Errorf("couldn't fetch token by role and got a %v status code", resp.StatusCode)
 	}
 
 	result := approle{}

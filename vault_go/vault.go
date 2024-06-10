@@ -363,7 +363,7 @@ func FetchSecrets(c *config) error {
 					i++
 				}
 			} else {
-				log.Error().Msgf("vault-go: no secret data available for path: %s", path)
+				log.Error().Msgf("vault-go: No secret data available for path: %s. The response was %s from vault.\n",path, resp.Status)
 			}
 		}
 	}

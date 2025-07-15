@@ -128,13 +128,13 @@ func UseNamespaceToken(c *config) bool {
 		// need to back to developer token, but really should not get
 		// there since at this point the code definitely found the OKD jwt
 		// TODO Besides, fetchsecrets doesn't fail properly
-
-		if err == nil {
-			FetchSecrets(c)
-			return true
-		} else {
+		
+		err = FetchSecrets(c)
+		if err != nil {
+			log.Error().Msgf("Error fetching secrets: %+v\n", err)
 			return false
 		}
+		return true
 
 	} else {
 		log.Error().Msgf("vault-go: missing environment info for VAULT_OKD_ROLE, VAULT_FITZ_ENDPOINT or VAULT_NAMESPACE_TOKEN_PATH")
